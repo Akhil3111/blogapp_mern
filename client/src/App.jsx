@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
-const API_BASE_URL = 'http://localhost:5000/api/v1';
-const ROOT_URL = 'http://localhost:5000'; // <-- Correct Root URL for static assets
+const API_BASE_URL = 'https://blogapp-mern-2.onrender.com/api/v1';
+const ROOT_URL = 'https://blogapp-mern-2.onrender.com'; // <-- Correct Root URL for static assets
 
 // --- UTILITY & AUTH HOOK ---
 const getAuthHeader = () => {
