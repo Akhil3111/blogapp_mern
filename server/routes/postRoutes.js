@@ -8,33 +8,22 @@ const parser = require('../config/cloudinary');
 
 const router = express.Router();
 
-// Public Routes
-router.get('/', getPosts); 
-router.get('/:id', getPost);
+// --- Public Routes ---
+router.get('/', getPosts);
 
-// Protected Content Creation Route
-router.post('/', protect, parser.single('thumbnail'), createPost);
-
-// --- THIS IS THE CORRECTED ROUTE ---
-// User's Posts Route (My Blogs)
-// The path is now '/my-blogs' which is more descriptive.
+// FIX: Specific routes must come BEFORE dynamic routes
 router.get('/my-blogs', protect, getUserPosts);
 
-// Protected Routes (Update/Delete/Interactions)
+// Dynamic route is now after '/my-blogs'
+router.get('/:id', getPost);
+
+// --- Protected Routes ---
+router.post('/', protect, parser.single('thumbnail'), createPost);
 router.put('/:id', protect, parser.single('thumbnail'), updatePost);
 router.delete('/:id', protect, deletePost);
 
-// User Interaction Routes
+// --- User Interaction Routes ---
 router.put('/:id/like', protect, likePost);
-router.put('/:id/dislike', protect, likePost);
-
-// Admin-only Routes (no changes needed)
-router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
-    // ... logic remains the same ...
-});
-
-router.put('/:id/status', protect, authorize('admin'), async (req, res) => {
-    // ... logic remains the same ...
-});
+router.put('/:id/dislike', protect, dislikePost);
 
 module.exports = router;

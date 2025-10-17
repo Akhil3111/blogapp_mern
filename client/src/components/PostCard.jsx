@@ -1,66 +1,92 @@
 import React from 'react';
-import { User, ThumbsUp, ThumbsDown, Edit, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Edit, Trash2, ThumbsUp, ThumbsDown, MessageCircle } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { likePost, dislikePost } from '../services/blogService';
 
-// Placeholder for the PostActions component we will create later
-const PostActions = ({ post }) => (
-    <span className="flex items-center space-x-3 text-sm">
-        <button className="flex items-center px-3 py-1.5 rounded-full text-gray-500 hover:text-green-600 bg-gray-50 transition">
-            <ThumbsUp className="w-4 h-4 mr-1" /> {post.likes.length}
-        </button>
-        <button className="flex items-center px-3 py-1.5 rounded-full text-gray-500 hover:text-red-600 bg-gray-50 transition">
-            <ThumbsDown className="w-4 h-4 mr-1" /> {post.dislikes.length}
-        </button>
-    </span>
-);
+const PostCard = ({ post, onPostUpdate, onDeleteClick }) => {
+    const { user, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
 
+    const isAuthor = user && post.author && user._id === post.author._id;
+    const hasLiked = post.likes.includes(user?._id);
+    const hasDisliked = post.dislikes.includes(user?._id);
 
-const PostCard = ({ post, currentUser }) => {
-    // Check if the currently logged-in user is the author of the post
-    const isAuthor = currentUser && post.author && currentUser._id === post.author._id;
-    const placeholderImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' style='background:%23ddd'%3E%3C/svg%3E";
+    const handleLike = async () => {
+        if (!isAuthenticated) return alert("Please log in to interact with posts.");
+        try {
+            const updatedPost = await likePost(post._id);
+            onPostUpdate(updatedPost.data);
+        } catch (error) {
+            console.error("Failed to like post:", error);
+        }
+    };
+
+    const handleDislike = async () => {
+        if (!isAuthenticated) return alert("Please log in to interact with posts.");
+        try {
+            const updatedPost = await dislikePost(post._id);
+            onPostUpdate(updatedPost.data);
+        } catch (error) {
+            console.error("Failed to dislike post:", error);
+        }
+    };
 
     return (
-        <div className="bg-white rounded-xl shadow-xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col hover:shadow-2xl hover:shadow-indigo-300/50 transform hover:scale-[1.02]">
-            <div className="h-48 overflow-hidden relative">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-md flex flex-col">
+            <Link to={`/post/${post._id}`} className="block h-48 overflow-hidden relative group">
                 <img 
-                    src={post.thumbnail || placeholderImg} 
+                    src={post.thumbnail || "https://images.unsplash.com/photo-1517048676732-d65bc937f952"} 
                     alt={post.title} 
-                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" 
-                    onError={(e) => { e.target.onerror = null; e.target.src=placeholderImg; }}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
                 />
-                 {/* AUTHOR-ONLY EDIT/DELETE BUTTONS */}
-                 {isAuthor && (
-                    <div className="absolute top-2 right-2 flex space-x-2">
-                        <button 
-                            // onClick={() => handleEdit(post._id)}
-                            className="p-2 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition transform hover:scale-110"
-                        >
-                            <Edit className="w-4 h-4" />
-                        </button>
-                        <button 
-                            // onClick={() => handleDelete(post._id)}
-                            className="p-2 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition transform hover:scale-110"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
-                    </div>
-                 )}
-            </div>
+            </Link>
 
             <div className="p-5 flex flex-col flex-grow">
-                <span className="px-3 py-1 text-xs text-white rounded-full font-bold bg-gradient-to-r from-indigo-500 to-purple-500 shadow-md shadow-purple-300/50 self-start">
-                    {post.category}
-                </span>
-                
-                <h3 className="text-xl font-bold text-gray-900 mt-3 mb-2 line-clamp-2">{post.title}</h3>
-                <p className="text-sm text-gray-500 line-clamp-3 mb-4 flex-grow">{post.subtitle || post.content.substring(0, 100) + '...'}</p>
-                
-                <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100">
-                    <span className="flex items-center space-x-1 text-gray-600 text-sm">
+                <p className="text-sm font-semibold text-indigo-600 mb-2">{post.category}</p>
+                <Link to={`/post/${post._id}`}>
+                    <h3 className="text-lg font-bold text-gray-900 line-clamp-2 hover:text-indigo-600 transition-colors">
+                        {post.title}
+                    </h3>
+                </Link>
+                <p className="text-sm text-gray-600 mt-2 line-clamp-3 flex-grow">
+                    {post.subtitle || post.content.substring(0, 100) + '...'}
+                </p>
+
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
                         <User className="w-4 h-4" />
-                        <span>{post.author?.username || 'Unknown'}</span>
-                    </span>
-                    <PostActions post={post} />
+                        <span className="font-medium">{post.author?.username || 'Unknown'}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                        <button onClick={handleLike} className={`flex items-center space-x-1 text-sm ${hasLiked ? 'text-indigo-600' : 'text-gray-500'} hover:text-indigo-600 transition-colors`}>
+                            <ThumbsUp className="w-4 h-4" />
+                            <span>{post.likes.length}</span>
+                        </button>
+
+                        {/* --- NEW DISLIKE BUTTON --- */}
+                        <button onClick={handleDislike} className={`flex items-center space-x-1 text-sm ${hasDisliked ? 'text-red-600' : 'text-gray-500'} hover:text-red-600 transition-colors`}>
+                            <ThumbsDown className="w-4 h-4" />
+                            <span>{post.dislikes.length}</span>
+                        </button>
+                        
+                        <Link to={`/post/${post._id}#comments`} className="flex items-center space-x-1 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
+                            <MessageCircle className="w-4 h-4" />
+                            <span>{post.comments?.length || 0}</span>
+                        </Link>
+                        
+                        {isAuthor && (
+                            <>
+                                <button onClick={() => navigate(`/edit-post/${post._id}`)} className="text-gray-500 hover:text-blue-600 transition-colors">
+                                    <Edit className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => onDeleteClick(post._id)} className="text-gray-500 hover:text-red-600 transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

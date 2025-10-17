@@ -74,13 +74,19 @@ exports.getPost = async (req, res) => {
 // @access  Private (User, Admin)
 exports.createPost = async (req, res) => {
     try {
-        // Add thumbnail URL from Cloudinary if file was uploaded
-        if (req.file) {
-            req.body.thumbnail = req.file.path;
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'Thumbnail image is required.' });
         }
+
+        // Add the image URL from Cloudinary to the request body
+        req.body.thumbnail = req.file.path;
 
         // Assign the authenticated user as the author
         req.body.author = req.user.id;
+
+        // Set status to 'Published' by default
+        req.body.status = 'Published';
+
         const post = await Post.create(req.body);
         res.status(201).json({ success: true, data: post });
     } catch (err) {

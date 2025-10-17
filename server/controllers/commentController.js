@@ -8,8 +8,8 @@ exports.getComments = async (req, res) => {
     try {
         const postId = req.params.postId;
         const comments = await Comment.find({ post: postId })
-            .populate('author', 'username role') // Show who wrote the comment
-            .sort({ createdAt: 1 }); // Oldest first
+            .populate('author', 'username role')
+            .sort({ createdAt: 1 });
 
         res.status(200).json({
             success: true,
@@ -23,24 +23,29 @@ exports.getComments = async (req, res) => {
 
 // @desc    Add a comment to a post
 // @route   POST /api/v1/comments/:postId
-// @access  Private (User, Admin)
+// @access  Private
 exports.addComment = async (req, res) => {
     try {
         const postId = req.params.postId;
         const post = await Post.findById(postId);
 
         if (!post) {
-            return res.status(404).json({ success: false, error: 'Post not found to comment on.' });
+            return res.status(404).json({ success: false, error: 'Post not found.' });
         }
 
-        req.body.post = postId;
-        req.body.author = req.user.id; // Get author from auth middleware
+        const { content } = req.body;
+        
+        if (!content) {
+            return res.status(400).json({ success: false, error: 'Comment content cannot be empty.' });
+        }
 
-        const comment = await Comment.create(req.body);
-
-        // Update comment count on the Post
-        post.commentCount = await Comment.countDocuments({ post: postId });
-        await post.save();
+        const comment = await Comment.create({
+            content: content,
+            post: postId,
+            author: req.user.id,
+        });
+        
+        await comment.populate('author', 'username');
 
         res.status(201).json({
             success: true,
@@ -53,7 +58,7 @@ exports.addComment = async (req, res) => {
 
 // @desc    Delete a comment
 // @route   DELETE /api/v1/comments/:id
-// @access  Private (Comment Author or Admin)
+// @access  Private
 exports.deleteComment = async (req, res) => {
     try {
         const comment = await Comment.findById(req.params.id);
@@ -62,14 +67,11 @@ exports.deleteComment = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Comment not found' });
         }
 
-        // Authorization check: Must be the author OR an admin
         if (comment.author.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ success: false, error: 'Not authorized to delete this comment' });
         }
 
-        // Decrement comment count on the Post before deleting
         await Post.findByIdAndUpdate(comment.post, { $inc: { commentCount: -1 } });
-
         await comment.deleteOne();
 
         res.status(200).json({ success: true, data: {} });

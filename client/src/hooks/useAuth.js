@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-// Updated to production API URL
-const API_BASE_URL = 'https://blogapp-mern-2.onrender.com/api/v1';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}`;
 
 export const getAuthHeader = () => {
     const token = localStorage.getItem('token');
@@ -36,7 +35,7 @@ export const useAuth = () => {
         setUser(null);
         setIsAuthenticated(false);
         fetch(`${API_BASE_URL}/auth/logout`, { headers }).catch(console.error);
-    }, []);
+    }, [API_BASE_URL]);
 
     return { user, isAuthenticated, isLoading, login, logout };
 };

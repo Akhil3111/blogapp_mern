@@ -1,1 +1,13 @@
+# Dependencies
 node_modules
+
+# Environment Variables (IMPORTANT: Contains secret keys)
+.env
+
+# User-uploaded files (optional but recommended)
+/public/uploads
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
