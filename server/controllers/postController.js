@@ -8,8 +8,8 @@ exports.getPosts = async (req, res) => {
     try {
         // Only fetch posts that are 'Published'
         const posts = await Post.find({ status: 'Published' })
-            .populate('author', 'username role') // Include author's username and role
-            .sort({ createdAt: -1 }); // Newest first
+            .populate('author', 'username role') 
+            .sort({ createdAt: -1 }); 
 
         res.status(200).json({
             success: true,
@@ -21,12 +21,14 @@ exports.getPosts = async (req, res) => {
     }
 };
 
-// @desc    Get authenticated user's posts (including drafts)
-// @route   GET /api/v1/posts/my-posts
-// @access  Private
-exports.getMyPosts = async (req, res) => {
+// --- NEW FUNCTION: Get all posts by the logged-in user ---
+// @desc    Get all posts by logged-in user (Drafts & Published)
+// @route   GET /api/v1/posts/me
+// @access  Private (User, Admin)
+exports.getUserPosts = async (req, res) => {
     try {
-        const posts = await Post.find({ author: req.user.id }) // <-- Filter by authenticated user's ID
+        // Find posts where the author ID matches the logged-in user's ID
+        const posts = await Post.find({ author: req.user.id })
             .populate('author', 'username role') 
             .sort({ createdAt: -1 });
 
@@ -36,12 +38,11 @@ exports.getMyPosts = async (req, res) => {
             data: posts,
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: 'Server error fetching your posts.' });
+        res.status(500).json({ success: false, error: 'Server error fetching user posts.' });
     }
 };
 
-
-// @desc    Get a single post
+// @desc    Get a single post (No changes needed here)
 // @route   GET /api/v1/posts/:id
 // @access  Public
 exports.getPost = async (req, res) => {
@@ -54,13 +55,13 @@ exports.getPost = async (req, res) => {
         }
         
         // Block viewing of Drafts by public users (unless they are the author or admin)
-        if (post.status === 'Draft' && (!req.user || req.user.role !== 'admin' && post.author.toString() !== req.user.id.toString())) {
+        const isAuthor = req.user && post.author._id.toString() === req.user.id;
+        if (post.status === 'Draft' && (!req.user || (!isAuthor && req.user.role !== 'admin'))) {
              return res.status(403).json({ success: false, error: 'Post is a draft and cannot be viewed.' });
         }
 
         res.status(200).json({ success: true, data: post });
     } catch (err) {
-        // Handle invalid ID format
         if (err instanceof mongoose.Error.CastError) {
              return res.status(404).json({ success: false, error: 'Invalid Post ID format' });
         }
@@ -68,37 +69,139 @@ exports.getPost = async (req, res) => {
     }
 };
 
-// @desc    Create new post
+// @desc    Create new post (No changes needed here)
 // @route   POST /api/v1/posts
 // @access  Private (User, Admin)
 exports.createPost = async (req, res) => {
     try {
+        // Add thumbnail URL from Cloudinary if file was uploaded
+        if (req.file) {
+            req.body.thumbnail = req.file.path;
+        }
+
         // Assign the authenticated user as the author
         req.body.author = req.user.id;
-        
-        // Handle thumbnail path from multer
-        if (req.file) {
-            // Store the path relative to the server's public folder
-            req.body.thumbnail = `/uploads/${req.file.filename}`;
-        }
-        // If no file, it defaults to 'no-photo.jpg' from the schema
-
         const post = await Post.create(req.body);
-
-        res.status(201).json({
-            success: true,
-            data: post,
-        });
+        res.status(201).json({ success: true, data: post });
     } catch (err) {
-        // Add specific handling for Multer errors here if needed
         res.status(400).json({ success: false, error: err.message });
     }
 };
 
-// ... (updatePost, deletePost, likePost, dislikePost functions remain the same) ...
+// @desc    Update a post
+// @route   PUT /api/v1/posts/:id
+// @access  Private (Author or Admin)
+exports.updatePost = async (req, res) => {
+    try {
+        let post = await Post.findById(req.params.id);
 
-// All functions below are preserved from the original file:
-exports.updatePost = async (req, res) => { /* ... */ };
-exports.deletePost = async (req, res) => { /* ... */ };
-exports.likePost = async (req, res) => { /* ... */ };
-exports.dislikePost = async (req, res) => { /* ... */ };
+        if (!post) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+
+        // Authorization check
+        if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: 'Not authorized to update this post' });
+        }
+
+        // Update thumbnail URL if new file was uploaded
+        if (req.file) {
+            req.body.thumbnail = req.file.path;
+        }
+
+        post = await Post.findByIdAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true,
+        });
+
+        res.status(200).json({ success: true, data: post });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+};
+
+// @desc    Delete a post
+// @route   DELETE /api/v1/posts/:id
+// @access  Private (Author or Admin)
+exports.deletePost = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) {
+            return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+
+        // --- PERMISSION CHECK ADDED HERE ---
+        // Authorization check: Must be the author OR an admin
+        if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: 'Not authorized to delete this post. You must be the author or an administrator.' });
+        }
+        // --- END PERMISSION CHECK ---
+
+        await post.deleteOne();
+
+        res.status(200).json({ success: true, data: {} });
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Server error during delete.' });
+    }
+};
+
+// --- LIKE/DISLIKE LOGIC FIX (Refined from previous version for clarity) ---
+
+// @desc    Like a post
+// @route   PUT /api/v1/posts/:id/like
+// @access  Private (User, Admin)
+exports.likePost = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+
+        const userId = req.user.id;
+        const alreadyLiked = post.likes.includes(userId);
+
+        if (alreadyLiked) {
+            // Unliking: Pull user ID from 'likes' array
+            post.likes.pull(userId);
+        } else {
+            // Liking: Add user ID to 'likes' array
+            post.likes.push(userId);
+            // If disliked, remove from 'dislikes' array
+            post.dislikes.pull(userId); 
+        }
+
+        await post.save();
+        res.status(200).json({ success: true, data: post });
+
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Server error during like operation.' });
+    }
+};
+
+// @desc    Dislike a post
+// @route   PUT /api/v1/posts/:id/dislike
+// @access  Private (User, Admin)
+exports.dislikePost = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+
+        const userId = req.user.id;
+        const alreadyDisliked = post.dislikes.includes(userId);
+
+        if (alreadyDisliked) {
+            // Undisliking: Pull user ID from 'dislikes' array
+            post.dislikes.pull(userId);
+        } else {
+            // Disliking: Add user ID to 'dislikes' array
+            post.dislikes.push(userId);
+            // If liked, remove from 'likes' array
+            post.likes.pull(userId); 
+        }
+
+        await post.save();
+        res.status(200).json({ success: true, data: post });
+
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Server error during dislike operation.' });
+    }
+};

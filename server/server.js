@@ -2,7 +2,7 @@
 
 require('dotenv').config({ path: './.env' }); // Load environment variables first
 const express = require('express');
-const cors = require('cors');
+const cors = require('cors'); // 1. Import the cors package
 const connectDB = require('./config/db');
 const cookieParser = require('cookie-parser'); // To handle cookies (for JWT)
 
@@ -10,12 +10,15 @@ const cookieParser = require('cookie-parser'); // To handle cookies (for JWT)
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
 const commentRoutes = require('./routes/commentRoutes');
-// Add this early in your server setup (e.g., server.js)
 const path = require('path');
 
 const app = express();
-app.use(express.static('public')); // This makes files in 'public' accessible
 
+// 2. Use the cors middleware
+// This MUST be placed before your routes are defined
+app.use(cors()); 
+
+app.use(express.static('public')); // This makes files in 'public' accessible
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,7 +26,6 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // --- Middleware Setup ---
-app.use(cors()); // Allow requests from our React frontend domain
 app.use(express.json()); // Body parser for JSON data
 app.use(cookieParser()); // Cookie parser for accessing JWT from cookie
 
