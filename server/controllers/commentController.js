@@ -79,3 +79,56 @@ exports.deleteComment = async (req, res) => {
         res.status(500).json({ success: false, error: 'Server error during comment delete.' });
     }
 };
+
+// @desc    Update a comment
+// @route   PUT /api/v1/comments/:id
+// @access  Private (Comment Author Only)
+exports.updateComment = async (req, res) => {
+    try {
+        const { id: commentId } = req.params;
+        const { content } = req.body;
+
+        // Validate content
+        if (!content || content.trim().length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Comment content cannot be empty.' 
+            });
+        }
+
+        // Find and check comment exists
+        const comment = await Comment.findById(commentId);
+        if (!comment) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Comment not found' 
+            });
+        }
+
+        // Check authorization
+        if (comment.author.toString() !== req.user.id) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Not authorized to update this comment' 
+            });
+        }
+
+        // Update comment
+        comment.content = content.trim();
+        comment.updatedAt = Date.now();
+        await comment.save();
+
+        // Populate author details
+        await comment.populate('author', 'username');
+
+        res.status(200).json({
+            success: true,
+            data: comment
+        });
+    } catch (err) {
+        res.status(500).json({ 
+            success: false, 
+            error: 'Server error while updating comment.' 
+        });
+    }
+};

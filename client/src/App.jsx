@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+// FIX: Add Link to this import
+import { BrowserRouter as Router, Routes, Route, Outlet, Navigate, Link } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
@@ -11,23 +12,22 @@ import Dashboard from './pages/Dashboard';
 import MyBlogs from './pages/MyBlogs';
 import AddBlogPage from './pages/AddBlogPage';
 import BlogDetailsPage from './pages/BlogDetailsPage';
-import EditBlogPage from './pages/EditBlogPage'; // Add this import
+import EditBlogPage from './pages/EditBlogPage';
+import ProfilePage from './pages/ProfilePage';
 
 // --- Import Components ---
 import AppNavbar from './components/AppNavbar';
 import Sidebar from './components/Sidebar';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// --- App Layout for Authenticated Users (with corrected Navbar prop) ---
+// --- App Layout for Authenticated Users ---
 const AppLayout = () => {
-    // FIX #1: Get the real isAuthenticated status from the hook
     const { user, logout, isAuthenticated } = useAuth();
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const toggleSidebar = () => setIsMobileSidebarOpen(prev => !prev);
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
-            {/* Pass the dynamic isAuthenticated value to the navbar */}
             <AppNavbar user={user} isAuthenticated={isAuthenticated} logout={logout} toggleSidebar={toggleSidebar} />
             <div className="flex flex-1 pt-16">
                 <Sidebar isMobileOpen={isMobileSidebarOpen} toggleSidebar={toggleSidebar} />
@@ -43,12 +43,14 @@ const AppLayout = () => {
 
 // --- Main App Router ---
 function App() {
-    const { isLoading } = useAuth();
-    
+    const { isLoading, isAuthenticated } = useAuth();
+
     if (isLoading) {
-        return <div className="min-h-screen flex justify-center items-center">
-            <Loader2 className="w-16 h-16 animate-spin text-gray-400" />
-        </div>;
+        return (
+            <div className="min-h-screen flex justify-center items-center bg-gray-50">
+                <Loader2 className="w-16 h-16 animate-spin text-gray-400" />
+            </div>
+        );
     }
 
     return (
@@ -56,10 +58,10 @@ function App() {
             <Routes>
                 {/* --- Public Routes --- */}
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+                <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
 
-                {/* --- Protected Routes (users must be logged in) --- */}
+                {/* --- Protected Routes --- */}
                 <Route element={<ProtectedRoute />}>
                     <Route element={<AppLayout />}>
                         <Route path="/dashboard" element={<Dashboard />} />
@@ -67,13 +69,20 @@ function App() {
                         <Route path="/add-blog" element={<AddBlogPage />} />
                         <Route path="/post/:id" element={<BlogDetailsPage />} />
                         <Route path="/edit-post/:id" element={<EditBlogPage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
                     </Route>
                 </Route>
-                
-                {/* --- Fallback Route --- */}
+
+                {/* --- Fallback Route (404) --- */}
+                {/* Line 80 where the Link component is used */}
                 <Route path="*" element={
-                    <div className="min-h-screen flex items-center justify-center">
-                        <h1 className="text-2xl font-bold text-gray-800">404 Page Not Found</h1>
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
+                        <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
+                        <p className="text-xl text-gray-600 mb-6">Oops! Page Not Found.</p>
+                        {/* Ensure Link is imported to use it here */}
+                        <Link to="/" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                            Go Home
+                        </Link>
                     </div>
                 } />
             </Routes>

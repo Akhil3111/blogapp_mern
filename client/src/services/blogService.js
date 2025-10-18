@@ -2,20 +2,64 @@ import { getAuthHeader } from '../hooks/useAuth';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/posts`;
 
-export const getAllBlogs = async () => {
-    const response = await fetch(API_BASE_URL);
-    if (!response.ok) throw new Error('Failed to fetch blogs.');
+/**
+ * Fetches published blog posts with pagination.
+ * @param {number} page - The page number to fetch.
+ * @param {number} limit - The number of posts per page.
+ * @returns {Promise<Object>} Object containing posts and pagination info.
+ */
+export const getAllBlogs = async (page = 1, limit = 6) => {
+    const response = await fetch(`${API_BASE_URL}?page=${page}&limit=${limit}`);
+    
+    if (!response.ok) {
+        let errorMsg = 'Failed to fetch blogs.';
+        try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; } catch (e) { /* ignore */ }
+        throw new Error(errorMsg);
+    }
+    
     const data = await response.json();
-    return data.data || [];
+    
+    if (data && data.success) {
+        return {
+            posts: data.data || [],
+            currentPage: data.currentPage,
+            totalPages: data.totalPages,
+            totalPosts: data.totalPosts
+        };
+    } else {
+        console.error("Unexpected response structure from getAllBlogs:", data);
+        return { posts: [], currentPage: 1, totalPages: 1, totalPosts: 0 };
+    }
 };
 
-export const getMyBlogs = async () => {
-    const response = await fetch(`${API_BASE_URL}/my-blogs`, {
+/**
+ * Fetches user's blog posts with pagination.
+ * @param {number} page - The page number to fetch.
+ * @param {number} limit - The number of posts per page.
+ * @returns {Promise<Object>} Object containing posts and pagination info.
+ */
+export const getMyBlogs = async (page = 1, limit = 6) => {
+    const response = await fetch(`${API_BASE_URL}/my-blogs?page=${page}&limit=${limit}`, {
         headers: getAuthHeader(),
     });
-    if (!response.ok) throw new Error('Failed to fetch your blogs.');
+    if (!response.ok) {
+        let errorMsg = 'Failed to fetch your blogs.';
+        try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch (e) { /* ignore */ }
+        throw new Error(errorMsg);
+    }
     const data = await response.json();
-    return data.data || [];
+    
+    if (data && data.success) {
+         return {
+            posts: data.data || [],
+            currentPage: data.currentPage,
+            totalPages: data.totalPages,
+            totalPosts: data.totalPosts
+        };
+    } else {
+        console.error("Unexpected response structure from getMyBlogs:", data);
+        return { posts: [], currentPage: 1, totalPages: 1, totalPosts: 0 };
+    }
 };
 
 export const createBlog = async (postData) => {
