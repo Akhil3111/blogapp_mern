@@ -14,6 +14,7 @@ import AddBlogPage from './pages/AddBlogPage';
 import BlogDetailsPage from './pages/BlogDetailsPage';
 import EditBlogPage from './pages/EditBlogPage';
 import ProfilePage from './pages/ProfilePage';
+import AboutUsPage from './pages/AboutUsPage';
 
 // --- Import Components ---
 import AppNavbar from './components/AppNavbar';
@@ -60,6 +61,7 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
                 <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
+                <Route path="/about" element={<AboutUsPage />} />
 
                 {/* --- Protected Routes --- */}
                 <Route element={<ProtectedRoute />}>
